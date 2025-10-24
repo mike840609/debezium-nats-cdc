@@ -38,19 +38,6 @@ services:
       timeout: 5s
       retries: 5
 
-  nats-init:
-    image: natsio/nats-box:latest
-    container_name: hr-nats-init
-    depends_on:
-      nats:
-        condition: service_healthy
-    volumes:
-      - ./nats-config:/config
-    command: nats stream add --config /config/stream.json --server nats://nats:4222
-    networks:
-      - hr-network
-    restart: "no"
-
   debezium:
     image: debezium/server:3.0.0.Final
     container_name: hr-debezium

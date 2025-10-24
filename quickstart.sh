@@ -52,15 +52,25 @@ else
     exit 1
 fi
 
-# Step 3: Initialize database
+# Step 3: Configure NATS stream
 echo ""
-echo -e "${YELLOW}Step 3: Initializing HR database schema...${NC}"
+echo -e "${YELLOW}Step 3: Configuring NATS stream...${NC}"
+docker run --rm \
+  --network bizeventhub-p2_hr-network \
+  -v "$(pwd)/nats-config:/config" \
+  natsio/nats-box:latest \
+  nats stream add --config /config/stream.json --server nats://hr-nats:4222
+echo -e "${GREEN}✓ NATS stream configured${NC}"
+
+# Step 4: Initialize database
+echo ""
+echo -e "${YELLOW}Step 4: Initializing HR database schema...${NC}"
 docker exec -i hr-mariadb mysql -uroot -prootpass hrdb < init-db.sql
 echo -e "${GREEN}✓ Database initialized with sample data${NC}"
 
-# Step 4: Verify binlog
+# Step 5: Verify binlog
 echo ""
-echo -e "${YELLOW}Step 4: Verifying binlog configuration...${NC}"
+echo -e "${YELLOW}Step 5: Verifying binlog configuration...${NC}"
 BINLOG_STATUS=$(docker exec hr-mariadb mysql -uroot -prootpass -sN -e "SHOW VARIABLES LIKE 'log_bin';" | awk '{print $2}')
 if [ "$BINLOG_STATUS" == "ON" ]; then
     echo -e "${GREEN}✓ Binlog is enabled${NC}"
@@ -69,7 +79,7 @@ else
     exit 1
 fi
 
-# Step 5: Show access information
+# Step 6: Show access information
 echo ""
 echo -e "${BLUE}╔════════════════════════════════════════╗"
 echo "║  Setup Complete!                       ║"
