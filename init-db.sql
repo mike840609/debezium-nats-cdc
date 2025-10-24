@@ -95,19 +95,19 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert sample data
-INSERT INTO departments (name, parent_department_id, manager_id) VALUES
+INSERT IGNORE INTO departments (name, parent_department_id, manager_id) VALUES
 ('Engineering', NULL, NULL),
 ('Human Resources', NULL, NULL),
 ('Sales', NULL, NULL);
 
-INSERT INTO positions (id, title, level, salary_min, salary_max) VALUES
+INSERT IGNORE INTO positions (id, title, level, salary_min, salary_max) VALUES
 ('IC1', 'Junior Engineer', 'IC', 60000, 80000),
 ('IC2', 'Engineer', 'IC', 80000, 110000),
 ('IC3', 'Senior Engineer', 'IC', 110000, 150000),
 ('IC4', 'Staff Engineer', 'IC', 150000, 200000),
 ('IC5', 'Principal Engineer', 'IC', 200000, 280000);
 
-INSERT INTO employees (employee_number, first_name, last_name, email, position_id, department_id, salary, hire_date, status) VALUES
+INSERT IGNORE INTO employees (employee_number, first_name, last_name, email, position_id, department_id, salary, hire_date, status) VALUES
 ('EMP001', 'John', 'Doe', 'john.doe@company.com', 'IC3', 1, 120000, '2023-01-15', 'active'),
 ('EMP002', 'Jane', 'Smith', 'jane.smith@company.com', 'IC2', 1, 95000, '2023-03-20', 'active'),
 ('EMP003', 'Bob', 'Johnson', 'bob.johnson@company.com', 'IC4', 1, 165000, '2022-06-01', 'active');
