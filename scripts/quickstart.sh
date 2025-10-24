@@ -3,6 +3,10 @@
 # Quick start script for HR CDC Pipeline
 set -e
 
+# Get the project root directory (parent of scripts directory)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
@@ -18,6 +22,7 @@ echo ""
 
 # Step 1: Start services
 echo -e "${YELLOW}Step 1: Starting Docker services...${NC}"
+cd "$PROJECT_ROOT"
 docker-compose up -d
 
 echo ""
@@ -57,7 +62,7 @@ echo ""
 echo -e "${YELLOW}Step 3: Configuring NATS stream...${NC}"
 docker run --rm \
   --network bizeventhub-p2_hr-network \
-  -v "$(pwd)/nats-config:/config" \
+  -v "$PROJECT_ROOT/config/nats:/config" \
   natsio/nats-box:latest \
   nats stream add --config /config/stream.json --server nats://hr-nats:4222
 echo -e "${GREEN}✓ NATS stream configured${NC}"
@@ -65,7 +70,7 @@ echo -e "${GREEN}✓ NATS stream configured${NC}"
 # Step 4: Initialize database
 echo ""
 echo -e "${YELLOW}Step 4: Initializing HR database schema...${NC}"
-docker exec -i hr-mariadb mysql -uroot -prootpass hrdb < init-db.sql
+docker exec -i hr-mariadb mysql -uroot -prootpass hrdb < "$PROJECT_ROOT/sql/init-db.sql"
 echo -e "${GREEN}✓ Database initialized with sample data${NC}"
 
 # Step 5: Verify binlog
@@ -103,10 +108,10 @@ echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo ""
 echo "  1. Test CDC pipeline:"
-echo "     ./test-cdc.sh"
+echo "     ./scripts/test-cdc.sh"
 echo ""
 echo "  2. Monitor CDC events (requires NATS CLI):"
-echo "     nats sub 'cdc.hr.>'"
+echo "     nats sub 'HCM.CDC.HR.>'"
 echo ""
 echo "  3. View service logs:"
 echo "     docker logs hr-debezium"
@@ -119,5 +124,5 @@ echo ""
 echo "  5. Check NATS JetStream:"
 echo "     curl http://localhost:8222/jsz"
 echo ""
-echo -e "${GREEN}For more information, see README-CDC.md${NC}"
+echo -e "${GREEN}For more information, see docs/cdc-guide.md${NC}"
 echo ""

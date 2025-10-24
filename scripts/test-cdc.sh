@@ -19,17 +19,17 @@ echo ""
 # Check if services are running
 echo -e "${YELLOW}Checking services...${NC}"
 if ! docker ps | grep -q hr-mariadb; then
-    echo -e "✗ MariaDB is not running. Please run ./quickstart.sh first"
+    echo -e "✗ MariaDB is not running. Please run ./scripts/quickstart.sh first"
     exit 1
 fi
 
 if ! docker ps | grep -q hr-nats; then
-    echo -e "✗ NATS is not running. Please run ./quickstart.sh first"
+    echo -e "✗ NATS is not running. Please run ./scripts/quickstart.sh first"
     exit 1
 fi
 
 if ! docker ps | grep -q hr-debezium; then
-    echo -e "✗ Debezium is not running. Please run ./quickstart.sh first"
+    echo -e "✗ Debezium is not running. Please run ./scripts/quickstart.sh first"
     exit 1
 fi
 

@@ -1,0 +1,32 @@
+# Docker volumes and data
+debezium_data/
+mariadb_data/
+
+# Debezium offset and schema history files
+config/debezium/offsets.dat
+config/debezium/schema-history.dat
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS generated files
+Thumbs.db

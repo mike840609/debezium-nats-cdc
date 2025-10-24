@@ -13,7 +13,7 @@ services:
       - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
-      - ./mariadb-config/my.cnf:/etc/mysql/conf.d/custom.cnf
+      - ./config/mariadb/my.cnf:/etc/mysql/conf.d/custom.cnf
     command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW --binlog-row-image=FULL
     networks:
       - hr-network
@@ -47,7 +47,7 @@ services:
       nats:
         condition: service_healthy
     volumes:
-      - ./debezium-config:/debezium/conf
+      - ./config/debezium:/debezium/conf
       - debezium_data:/debezium/data
     environment:
       QUARKUS_CONFIG_LOCATIONS: /debezium/conf

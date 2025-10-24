@@ -1,526 +1,261 @@
-# HR Event Publisher System - Implementation Guide
+# HR Event Publisher - CDC Pipeline
 
-## 📁 Files Overview
+A Change Data Capture (CDC) pipeline for HR systems using Debezium, NATS JetStream, and MariaDB.
 
-This package contains a complete implementation of the HR Event Publisher System with the following files:
+## 📋 Overview
 
-### Documentation
-- **hr-event-publisher-architecture.svg** - System architecture diagram
-- **hr-event-publisher-design.md** - Comprehensive design document
-- **README.md** - This file
+This project implements a CDC pipeline that captures database changes from MariaDB and publishes them as events to NATS JetStream. It's designed for HR event tracking and can be extended with business logic processors.
 
-### Infrastructure
-- **docker-compose.yml** - Complete Docker Compose setup for all services
-- **init-mariadb.sql** - MariaDB schema and sample data
-- **init-clickhouse.sql** - ClickHouse event store schema
+## 🏗️ Architecture
 
-### Java Implementation
-- **EmployeePromotedEvent.java** - Domain event model example
-- **CdcEventListener.java** - NATS listener for CDC events
-- **PromotionTransformer.java** - Business logic to detect promotions
-- **TerminationTransformer.java** - Business logic to detect terminations
+- **MariaDB** - Source database with HR data (employees, departments, positions, etc.)
+- **Debezium** - CDC connector that reads MariaDB binlog
+- **NATS JetStream** - Event streaming platform for distributing CDC events
+- **Docker Compose** - Infrastructure orchestration
 
----
+## 📁 Project Structure
+
+```
+.
+├── Makefile                    # Common operations (start, stop, test, clean)
+├── docker-compose.yml          # Service definitions
+├── config/                     # All configurations
+│   ├── mariadb/
+│   │   └── my.cnf             # MariaDB configuration
+│   ├── debezium/
+│   │   └── application.properties  # Debezium connector config
+│   └── nats/
+│       └── stream.json        # NATS JetStream configuration
+├── scripts/                    # Executable scripts
+│   ├── quickstart.sh          # Quick start script
+│   └── test-cdc.sh            # CDC pipeline test script
+├── sql/                        # SQL scripts
+│   └── init-db.sql            # Database schema and sample data
+└── docs/                       # Documentation
+    ├── architecture.svg        # Architecture diagram
+    ├── sequence-diagrams.svg   # Sequence diagrams
+    ├── design.md              # Design document
+    ├── system-design.md       # System design details
+    └── cdc-guide.md           # CDC implementation guide
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Docker & Docker Compose
-- Java 17+ and Maven (for building the Spring Boot app)
-- 8GB RAM minimum
-- 20GB disk space
+- 4GB RAM minimum
+- 10GB disk space
 
-### Step 1: Setup Infrastructure
-
-1. **Create project directory structure:**
-```bash
-mkdir -p hr-event-publisher
-cd hr-event-publisher
-
-mkdir -p init-scripts/mariadb
-mkdir -p init-scripts/clickhouse
-mkdir -p logs
-mkdir -p src/main/java/com/company/hr/events
-```
-
-2. **Copy initialization scripts:**
-```bash
-# Copy MariaDB init script
-cp init-mariadb.sql init-scripts/mariadb/01-init.sql
-
-# Copy ClickHouse init script
-cp init-clickhouse.sql init-scripts/clickhouse/01-init.sql
-```
-
-3. **Copy docker-compose.yml to project root:**
-```bash
-cp docker-compose.yml .
-```
-
-### Step 2: Start Infrastructure Services
+### Option 1: Using Makefile (Recommended)
 
 ```bash
-# Start MariaDB, NATS, Debezium, and ClickHouse
-docker-compose up -d mariadb nats clickhouse debezium
+# Start all services with full initialization
+make start
 
-# Check logs
-docker-compose logs -f debezium
+# Run CDC tests
+make test
+
+# Check service status
+make status
+
+# View logs
+make logs
+
+# Stop services
+make stop
+
+# Clean up everything (including volumes)
+make clean
 ```
 
-**Wait for services to be healthy** (check with `docker-compose ps`)
-
-### Step 3: Build Spring Boot Application
-
-1. **Create Maven project structure:**
-```bash
-cd src/main/java/com/company/hr/events
-
-# Create package directories
-mkdir -p {config,listener,transformer,publisher,service,repository,model/{cdc,domain},util}
-```
-
-2. **Copy implementation files:**
-```bash
-cp EmployeePromotedEvent.java model/domain/
-cp CdcEventListener.java listener/
-cp PromotionTransformer.java transformer/
-cp TerminationTransformer.java transformer/
-```
-
-3. **Create pom.xml** (see design document for complete Maven dependencies)
-
-4. **Build the application:**
-```bash
-mvn clean package -DskipTests
-```
-
-### Step 4: Run the Event Publisher
+### Option 2: Using Scripts Directly
 
 ```bash
-# Start the Spring Boot service
-docker-compose up -d hr-event-publisher
+# Start services and initialize
+./scripts/quickstart.sh
 
-# Check logs
-docker-compose logs -f hr-event-publisher
+# Test the CDC pipeline
+./scripts/test-cdc.sh
 ```
 
-### Step 5: Verify the System
+### Option 3: Manual Setup
 
-1. **Check NATS subjects:**
 ```bash
-# Install NATS CLI
-# brew install nats-io/nats-tools/nats (macOS)
-# or download from https://github.com/nats-io/natscli
+# Start services
+docker-compose up -d
 
-# Monitor CDC events
-nats sub "cdc.hr.>"
+# Wait for services to be healthy
+sleep 30
 
-# Monitor domain events
-nats sub "events.hr.>"
+# Initialize NATS stream and database
+make init
 ```
 
-2. **Test with sample data:**
+## 📊 Service Endpoints
+
+| Service  | Endpoint                    | Description            |
+|----------|-----------------------------|------------------------|
+| MariaDB  | `localhost:3306`            | Database server        |
+| NATS     | `localhost:4222`            | NATS client port       |
+| NATS UI  | `http://localhost:8222`     | NATS monitoring        |
+
+### Database Access
+
 ```bash
 # Connect to MariaDB
-docker exec -it hr-mariadb mysql -u root -prootpassword hr_db
+docker exec -it hr-mariadb mysql -uhruser -phrpass hrdb
 
-# Simulate a promotion
-UPDATE employees 
-SET position_id = 'pos-003', salary = 165000 
-WHERE id = 'emp-001';
-
-# Simulate a termination
-UPDATE employees 
-SET status = 'terminated', 
-    termination_date = CURDATE(),
-    termination_type = 'resignation',
-    termination_reason = 'New opportunity'
-WHERE id = 'emp-002';
+# Credentials
+# - Database: hrdb
+# - User: hruser / hrpass
+# - Root: root / rootpass
 ```
 
-3. **Verify events in ClickHouse:**
-```bash
-# Connect to ClickHouse
-docker exec -it hr-clickhouse clickhouse-client
+### NATS Event Topics
 
-# Query events
-SELECT event_type, aggregate_id, event_timestamp, payload 
-FROM hr_events.event_log 
-ORDER BY event_timestamp DESC 
-LIMIT 10;
+Events are published to NATS with the pattern: `HCM.CDC.HR.<database>.<table>`
 
-# Check statistics
-SELECT event_type, count() as count 
-FROM hr_events.event_log 
-GROUP BY event_type;
-```
-
----
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-# MariaDB
-MYSQL_ROOT_PASSWORD=rootpassword
-MYSQL_DATABASE=hr_db
-MYSQL_USER=hr_user
-MYSQL_PASSWORD=hr_password
-
-# Debezium
-DEBEZIUM_PASSWORD=debezium_password
-
-# ClickHouse
-CLICKHOUSE_USER=clickhouse_user
-CLICKHOUSE_PASSWORD=clickhouse_password
-
-# NATS
-NATS_URL=nats://nats:4222
-```
-
-### Spring Boot Configuration
-
-Create `application.yml` in `src/main/resources/`:
-
-```yaml
-spring:
-  application:
-    name: hr-event-publisher
-  
-  nats:
-    server: ${NATS_URL:nats://localhost:4222}
-  
-  datasource:
-    clickhouse:
-      url: ${CLICKHOUSE_URL:jdbc:clickhouse://localhost:8123/hr_events}
-      username: ${CLICKHOUSE_USER:clickhouse_user}
-      password: ${CLICKHOUSE_PASSWORD:clickhouse_password}
-
-event-publisher:
-  enable-enrichment: true
-  enable-validation: true
-  store-in-clickhouse: true
-```
-
----
-
-## 📊 Monitoring
-
-### Health Checks
-
-```bash
-# Check service health
-curl http://localhost:8080/actuator/health
-
-# Check NATS
-curl http://localhost:8222/healthz
-
-# Check ClickHouse
-curl http://localhost:8123/ping
-```
-
-### Metrics
-
-```bash
-# Prometheus metrics
-curl http://localhost:8080/actuator/prometheus
-
-# NATS monitoring
-open http://localhost:8222
-```
-
-### Logs
-
-```bash
-# Application logs
-docker-compose logs -f hr-event-publisher
-
-# Debezium logs
-docker-compose logs -f debezium
-
-# All services
-docker-compose logs -f
-```
-
----
+Examples:
+- `HCM.CDC.HR.hrdb.employees` - Employee changes
+- `HCM.CDC.HR.hrdb.departments` - Department changes
+- `HCM.CDC.HR.hrdb.salary_changes` - Salary change records
 
 ## 🧪 Testing
 
-### Manual Testing Scenarios
+The test script performs CRUD operations and verifies CDC events:
 
-#### Scenario 1: Employee Promotion
-```sql
--- Connect to MariaDB
-USE hr_db;
-
--- Promote employee with salary increase
-UPDATE employees 
-SET position_id = 'pos-003', 
-    salary = 180000,
-    updated_at = NOW()
-WHERE id = 'emp-001';
-
--- Expected: EmployeePromotedEvent published to events.hr.employee.promoted
+```bash
+# Run tests
+make test
+# or
+./scripts/test-cdc.sh
 ```
 
-#### Scenario 2: Employee Termination
-```sql
--- Terminate employee
-UPDATE employees 
-SET status = 'terminated',
-    termination_date = CURDATE(),
-    termination_type = 'voluntary',
-    termination_reason = 'Relocated to another city',
-    terminated_by_user_id = 'emp-003',
-    updated_at = NOW()
-WHERE id = 'emp-002';
+Test operations:
+1. Insert employee (EMP999 - Test User)
+2. Update salary (90000 → 95000)
+3. Record salary change
+4. Create leave request
+5. Delete test data
 
--- Expected: EmployeeTerminatedEvent published to events.hr.employee.terminated
-```
+### Monitor Events
 
-#### Scenario 3: Department Transfer
-```sql
--- Transfer employee to different department
-UPDATE employees 
-SET department_id = 'dept-006',
-    updated_at = NOW()
-WHERE id = 'emp-001';
-
--- Expected: EmployeeTransferredEvent published to events.hr.employee.transferred
-```
-
-### Verify Events
-
+Using NATS CLI:
 ```bash
 # Subscribe to all HR events
-nats sub "events.hr.>" --count=10
+nats sub 'HCM.CDC.HR.>' --server localhost:4222
 
-# Or use ClickHouse
-docker exec -it hr-clickhouse clickhouse-client --query "
-SELECT 
-    event_type,
-    aggregate_id,
-    toDateTime(event_timestamp) as timestamp,
-    JSONExtractString(payload, 'employeeName') as employee_name
-FROM hr_events.event_log
-WHERE event_timestamp > now() - INTERVAL 1 HOUR
-ORDER BY event_timestamp DESC
-FORMAT Pretty"
+# Subscribe to specific table
+nats sub 'HCM.CDC.HR.hrdb.employees' --server localhost:4222
 ```
 
----
-
-## 🔌 Integration with Consumers
-
-### Subscribe to Events (NATS)
-
-**Node.js Example:**
-```javascript
-const { connect, JSONCodec } = require('nats');
-
-async function subscribeToHREvents() {
-  const nc = await connect({ servers: 'nats://localhost:4222' });
-  const jc = JSONCodec();
-  
-  const sub = nc.subscribe('events.hr.employee.*');
-  
-  for await (const msg of sub) {
-    const event = jc.decode(msg.data);
-    console.log(`Received ${event.eventType}:`, event);
-    
-    // Process the event
-    if (event.eventType === 'EmployeeHired') {
-      // Send welcome email
-    }
-  }
-}
-
-subscribeToHREvents();
+Using Docker:
+```bash
+docker run --rm -it --network bizeventhub-p2_hr-network \
+  natsio/nats-box:latest \
+  nats sub 'HCM.CDC.HR.>' --server nats://hr-nats:4222
 ```
 
-**Python Example:**
-```python
-import asyncio
-from nats.aio.client import Client as NATS
-import json
+## 📖 Database Schema
 
-async def subscribe_hr_events():
-    nc = NATS()
-    await nc.connect("nats://localhost:4222")
-    
-    async def message_handler(msg):
-        event = json.loads(msg.data.decode())
-        print(f"Received {event['eventType']}: {event}")
-        
-        # Process the event
-        if event['eventType'] == 'EmployeeTerminated':
-            # Revoke access, update systems, etc.
-            pass
-    
-    await nc.subscribe("events.hr.employee.*", cb=message_handler)
-    
-    # Keep the connection alive
-    while True:
-        await asyncio.sleep(1)
+Tables included:
+- `employees` - Employee master data
+- `departments` - Department hierarchy
+- `positions` - Job positions and levels
+- `salary_changes` - Salary change history
+- `leave_requests` - Leave request tracking
+- `attendance_records` - Daily attendance
 
-asyncio.run(subscribe_hr_events())
-```
+See `sql/init-db.sql` for complete schema.
 
----
+## 🔧 Configuration
 
-## 📈 Scaling
+### Debezium Configuration
 
-### Horizontal Scaling
+Edit `config/debezium/application.properties`:
+- Database connection settings
+- Topic prefix: `HCM.CDC.HR`
+- NATS JetStream URL
 
-Scale the Spring Boot application:
+### NATS Stream Configuration
+
+Edit `config/nats/stream.json`:
+- Stream name
+- Subject patterns
+- Retention policy
+- Storage type
+
+### MariaDB Configuration
+
+Edit `config/mariadb/my.cnf`:
+- Binlog settings (required for CDC)
+- Performance tuning
+
+## 🐛 Troubleshooting
+
+### Check Service Health
 
 ```bash
-# Scale to 3 instances
-docker-compose up -d --scale hr-event-publisher=3
+make status
+# or
+docker-compose ps
 ```
 
-NATS consumer groups ensure events are distributed across instances.
+### View Logs
 
-### NATS JetStream
-
-For guaranteed delivery, enable JetStream:
-
-```yaml
-# In docker-compose.yml, NATS configuration already includes JetStream
-# Configure durable consumers in your application
-```
-
----
-
-## 🛠️ Troubleshooting
-
-### Issue: Debezium not capturing changes
-
-**Solution:**
 ```bash
-# Check binlog is enabled
-docker exec hr-mariadb mysql -u root -prootpassword -e "SHOW VARIABLES LIKE 'log_bin';"
+# All services
+make logs
 
-# Check Debezium user permissions
-docker exec hr-mariadb mysql -u root -prootpassword -e "SHOW GRANTS FOR 'debezium_user'@'%';"
-
-# Check Debezium logs
-docker-compose logs debezium | grep ERROR
+# Specific service
+docker logs hr-debezium
+docker logs hr-mariadb
+docker logs hr-nats
 ```
 
-### Issue: Events not appearing in ClickHouse
+### Verify Binlog is Enabled
 
-**Solution:**
 ```bash
-# Check ClickHouse connection
-docker exec hr-event-publisher curl http://clickhouse:8123/ping
-
-# Check application logs
-docker-compose logs hr-event-publisher | grep ClickHouse
-
-# Verify table exists
-docker exec hr-clickhouse clickhouse-client --query "SHOW TABLES FROM hr_events"
+docker exec hr-mariadb mysql -uroot -prootpass \
+  -e "SHOW VARIABLES LIKE 'log_bin';"
 ```
 
-### Issue: NATS connection refused
+### Check NATS JetStream
 
-**Solution:**
 ```bash
-# Check NATS is running
-docker-compose ps nats
-
-# Test NATS connection
-docker exec hr-event-publisher nc -zv nats 4222
-
-# Check NATS logs
-docker-compose logs nats
+curl http://localhost:8222/jsz
 ```
 
----
+### Reset Everything
 
-## 🔐 Security
-
-### Production Recommendations
-
-1. **Use TLS for NATS:**
-```yaml
-nats:
-  command:
-    - "--tls"
-    - "--tlscert=/certs/server-cert.pem"
-    - "--tlskey=/certs/server-key.pem"
+```bash
+make clean
+make start
 ```
 
-2. **Enable Authentication:**
-```yaml
-nats:
-  command:
-    - "--user=admin"
-    - "--pass=${NATS_PASSWORD}"
-```
+## 📚 Documentation
 
-3. **Mask Sensitive Data:**
-```java
-// In event transformers
-if (field.isSensitive()) {
-    payload.put(field.getName(), "***MASKED***");
-}
-```
+- [Architecture Diagram](docs/architecture.svg)
+- [Sequence Diagrams](docs/sequence-diagrams.svg)
+- [Design Document](docs/design.md)
+- [System Design](docs/system-design.md)
+- [CDC Implementation Guide](docs/cdc-guide.md)
 
-4. **Enable SSL for ClickHouse:**
-```yaml
-clickhouse:
-  environment:
-    CLICKHOUSE_SSL: 1
-```
+## 🤝 Contributing
 
----
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-## 📚 Additional Resources
+## 📝 License
+
+This project is provided as-is for educational and development purposes.
+
+## 🔗 Related Resources
 
 - [Debezium Documentation](https://debezium.io/documentation/)
-- [NATS Documentation](https://docs.nats.io/)
-- [Spring Cloud Stream](https://spring.io/projects/spring-cloud-stream)
-- [ClickHouse Documentation](https://clickhouse.com/docs)
-- [Event-Driven Architecture Patterns](https://martinfowler.com/articles/201701-event-driven.html)
-
----
-
-## 📝 Next Steps
-
-1. ✅ Complete the transformer implementations for all event types
-2. ✅ Add integration tests
-3. ✅ Implement event schema validation
-4. ✅ Set up monitoring dashboards (Grafana)
-5. ✅ Add circuit breakers for fault tolerance
-6. ✅ Implement event replay mechanism
-7. ✅ Add OpenAPI documentation
-8. ✅ Set up CI/CD pipeline
-
----
-
-## 📞 Support
-
-For issues or questions:
-- Check the design document for detailed explanations
-- Review the troubleshooting section
-- Check Docker logs: `docker-compose logs -f`
-
----
-
-## 📄 License
-
-All components used are open-source:
-- MariaDB: GPL v2
-- Debezium: Apache 2.0
-- NATS: Apache 2.0
-- ClickHouse: Apache 2.0
-- Spring Boot: Apache 2.0
-
----
-
-**Version:** 1.0  
-**Last Updated:** 2025-10-22
+- [NATS JetStream](https://docs.nats.io/nats-concepts/jetstream)
+- [MariaDB Binlog](https://mariadb.com/kb/en/binary-log/)
