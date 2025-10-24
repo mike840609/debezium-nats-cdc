@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mariadb:
+    image: mariadb:10.6.19
+    container_name: hr-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: hrdb
+      MYSQL_USER: hruser
+      MYSQL_PASSWORD: hrpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./mariadb-config/my.cnf:/etc/mysql/conf.d/custom.cnf
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW --binlog-row-image=FULL
+    networks:
+      - hr-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: hr-nats
+    ports:
+      - "4222:4222"  # Client connections
+      - "8222:8222"  # HTTP monitoring
+    command: "-js -m 8222 --debug"  # Enable JetStream and monitoring
+    networks:
+      - hr-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nats-init:
+    image: natsio/nats-box:latest
+    container_name: hr-nats-init
+    depends_on:
+      nats:
+        condition: service_healthy
+    volumes:
+      - ./nats-config:/config
+    command: nats stream add --config /config/stream.json --server nats://nats:4222
+    networks:
+      - hr-network
+    restart: "no"
+
+  debezium:
+    image: debezium/server:3.0.0.Final
+    container_name: hr-debezium
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    volumes:
+      - ./debezium-config:/debezium/conf
+      - debezium_data:/debezium/data
+    environment:
+      QUARKUS_CONFIG_LOCATIONS: /debezium/conf
+    networks:
+      - hr-network
+    restart: unless-stopped
+
+networks:
+  hr-network:
+    driver: bridge
+
+volumes:
+  mariadb_data:
+  debezium_data:

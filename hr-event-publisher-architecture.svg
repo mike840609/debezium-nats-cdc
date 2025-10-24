@@ -1,0 +1,179 @@
+<svg viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles -->
+  <defs>
+    <style>
+      .component-box { fill: #ffffff; stroke: #2c3e50; stroke-width: 2; }
+      .db-box { fill: #e8f4f8; stroke: #2980b9; stroke-width: 2; }
+      .service-box { fill: #e8f5e9; stroke: #27ae60; stroke-width: 2; }
+      .queue-box { fill: #fff3e0; stroke: #f39c12; stroke-width: 2; }
+      .storage-box { fill: #f3e5f5; stroke: #8e44ad; stroke-width: 2; }
+      .title-text { font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; fill: #2c3e50; }
+      .small-text { font-family: Arial, sans-serif; font-size: 11px; fill: #34495e; }
+      .layer-text { font-family: Arial, sans-serif; font-size: 13px; font-weight: bold; fill: #7f8c8d; }
+      .arrow { stroke: #34495e; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .arrow-label { font-family: Arial, sans-serif; font-size: 10px; fill: #7f8c8d; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="600" y="30" text-anchor="middle" style="font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; fill: #2c3e50;">
+    HR Event Publisher System Architecture
+  </text>
+
+  <!-- Layer 1: Data Sources -->
+  <text x="20" y="80" class="layer-text">Layer 1: Data Sources</text>
+  
+  <!-- MariaDB -->
+  <rect x="80" y="90" width="180" height="80" class="db-box" rx="5"/>
+  <text x="170" y="115" text-anchor="middle" class="title-text">MariaDB 10.6.19</text>
+  <text x="170" y="135" text-anchor="middle" class="small-text">HR Database</text>
+  <text x="170" y="150" text-anchor="middle" class="small-text">• employees</text>
+  <text x="170" y="163" text-anchor="middle" class="small-text">• departments</text>
+
+  <!-- Upstream NATS Input -->
+  <rect x="320" y="90" width="180" height="80" class="queue-box" rx="5"/>
+  <text x="410" y="115" text-anchor="middle" class="title-text">NATS Upstream</text>
+  <text x="410" y="135" text-anchor="middle" class="small-text">External Events</text>
+  <text x="410" y="150" text-anchor="middle" class="small-text">• hr.external.*</text>
+  <text x="410" y="163" text-anchor="middle" class="small-text">• payroll.*</text>
+
+  <!-- Layer 2: CDC Layer -->
+  <text x="20" y="230" class="layer-text">Layer 2: CDC Layer</text>
+  
+  <!-- Debezium Server -->
+  <rect x="80" y="240" width="180" height="100" class="component-box" rx="5"/>
+  <text x="170" y="265" text-anchor="middle" class="title-text">Debezium Server</text>
+  <text x="170" y="285" text-anchor="middle" class="small-text">Connectors:</text>
+  <text x="170" y="300" text-anchor="middle" class="small-text">• MySQL Connector</text>
+  <text x="170" y="315" text-anchor="middle" class="small-text">• Binlog Reader</text>
+  <text x="170" y="330" text-anchor="middle" class="small-text">Output: NATS</text>
+
+  <!-- Arrow from MariaDB to Debezium -->
+  <path d="M 170 170 L 170 240" class="arrow"/>
+  <text x="180" y="210" class="arrow-label">Binlog</text>
+
+  <!-- Layer 3: Message Broker -->
+  <text x="20" y="400" class="layer-text">Layer 3: Message Queue</text>
+  
+  <!-- NATS Core -->
+  <rect x="80" y="410" width="420" height="90" class="queue-box" rx="5"/>
+  <text x="290" y="435" text-anchor="middle" class="title-text">NATS Message Broker</text>
+  <text x="150" y="460" text-anchor="start" class="small-text">CDC Stream: cdc.hr.employees, cdc.hr.departments</text>
+  <text x="150" y="475" text-anchor="start" class="small-text">Upstream: hr.external.*, payroll.*</text>
+  <text x="150" y="490" text-anchor="start" class="small-text">Output: events.hr.employee.*, events.hr.org.*, ...</text>
+
+  <!-- Arrows to NATS -->
+  <path d="M 170 340 L 170 410" class="arrow"/>
+  <text x="180" y="380" class="arrow-label">CDC Events</text>
+  
+  <path d="M 410 170 L 410 410" class="arrow"/>
+  <text x="420" y="290" class="arrow-label">External Events</text>
+
+  <!-- Layer 4: Processing Layer -->
+  <text x="20" y="560" class="layer-text">Layer 4: Event Processing</text>
+  
+  <!-- Spring Boot Service -->
+  <rect x="80" y="570" width="420" height="120" class="service-box" rx="5"/>
+  <text x="290" y="595" text-anchor="middle" class="title-text">HR Event Publisher Service (Spring Boot)</text>
+  <text x="150" y="620" text-anchor="start" class="small-text">• Event Transformation (CDC → Domain Events)</text>
+  <text x="150" y="638" text-anchor="start" class="small-text">• Business Logic Processing</text>
+  <text x="150" y="656" text-anchor="start" class="small-text">• Event Enrichment &amp; Validation</text>
+  <text x="150" y="674" text-anchor="start" class="small-text">• Domain Event Publishing</text>
+
+  <!-- Arrow from NATS to Spring Boot -->
+  <path d="M 290 500 L 290 570" class="arrow"/>
+  <text x="300" y="540" class="arrow-label">Subscribe</text>
+
+  <!-- Layer 5: Storage & Output -->
+  <text x="20" y="750" class="layer-text">Layer 5: Output &amp; Storage</text>
+
+  <!-- ClickHouse -->
+  <rect x="80" y="760" width="180" height="90" class="storage-box" rx="5"/>
+  <text x="170" y="785" text-anchor="middle" class="title-text">ClickHouse 24.10</text>
+  <text x="170" y="805" text-anchor="middle" class="small-text">Event Store</text>
+  <text x="170" y="820" text-anchor="middle" class="small-text">• event_log</text>
+  <text x="170" y="835" text-anchor="middle" class="small-text">• audit_trail</text>
+
+  <!-- NATS Output Topics -->
+  <rect x="320" y="760" width="180" height="90" class="queue-box" rx="5"/>
+  <text x="410" y="785" text-anchor="middle" class="title-text">NATS Subjects</text>
+  <text x="410" y="805" text-anchor="middle" class="small-text">Domain Events:</text>
+  <text x="410" y="820" text-anchor="middle" class="small-text">• events.hr.employee.*</text>
+  <text x="410" y="835" text-anchor="middle" class="small-text">• events.hr.org.*</text>
+
+  <!-- Arrows from Spring Boot to outputs -->
+  <path d="M 170 690 L 170 760" class="arrow"/>
+  <text x="180" y="730" class="arrow-label">Store Events</text>
+
+  <path d="M 410 690 L 410 760" class="arrow"/>
+  <text x="420" y="730" class="arrow-label">Publish</text>
+
+  <!-- Consumers -->
+  <text x="580" y="750" class="layer-text">Consumers</text>
+  
+  <rect x="580" y="760" width="140" height="35" class="component-box" rx="3"/>
+  <text x="650" y="782" text-anchor="middle" class="small-text">Notification Service</text>
+
+  <rect x="580" y="805" width="140" height="35" class="component-box" rx="3"/>
+  <text x="650" y="827" text-anchor="middle" class="small-text">Analytics Service</text>
+
+  <rect x="750" y="760" width="140" height="35" class="component-box" rx="3"/>
+  <text x="820" y="782" text-anchor="middle" class="small-text">Integration Service</text>
+
+  <rect x="750" y="805" width="140" height="35" class="component-box" rx="3"/>
+  <text x="820" y="827" text-anchor="middle" class="small-text">Audit Service</text>
+
+  <!-- Arrows to consumers -->
+  <path d="M 500 805 L 580 777" class="arrow"/>
+  <path d="M 500 805 L 580 822" class="arrow"/>
+  <path d="M 500 805 L 750 777" class="arrow"/>
+  <path d="M 500 805 L 750 822" class="arrow"/>
+
+  <!-- Domain Events Box -->
+  <rect x="920" y="90" width="250" height="330" style="fill: #ecf0f1; stroke: #95a5a6; stroke-width: 2; stroke-dasharray: 5,5;" rx="5"/>
+  <text x="1045" y="115" text-anchor="middle" class="title-text">Domain Event Granularity</text>
+  
+  <text x="935" y="145" class="small-text" font-weight="bold">Employee Lifecycle:</text>
+  <text x="945" y="162" class="small-text">• EmployeeHired</text>
+  <text x="945" y="177" class="small-text">• EmployeePromoted</text>
+  <text x="945" y="192" class="small-text">• EmployeeTerminated</text>
+  <text x="945" y="207" class="small-text">• EmployeeTransferred</text>
+
+  <text x="935" y="232" class="small-text" font-weight="bold">Organization:</text>
+  <text x="945" y="249" class="small-text">• DepartmentCreated</text>
+  <text x="945" y="264" class="small-text">• DepartmentRestructured</text>
+  <text x="945" y="279" class="small-text">• ManagerAssigned</text>
+
+  <text x="935" y="304" class="small-text" font-weight="bold">Compensation:</text>
+  <text x="945" y="321" class="small-text">• SalaryAdjusted</text>
+  <text x="945" y="336" class="small-text">• BonusAwarded</text>
+
+  <text x="935" y="361" class="small-text" font-weight="bold">Attendance:</text>
+  <text x="945" y="378" class="small-text">• LeaveRequested</text>
+  <text x="945" y="393" class="small-text">• AttendanceMarked</text>
+
+  <!-- Technology Stack Box -->
+  <rect x="920" y="440" width="250" height="150" style="fill: #fef5e7; stroke: #f39c12; stroke-width: 2;" rx="5"/>
+  <text x="1045" y="465" text-anchor="middle" class="title-text">Technology Stack</text>
+  
+  <text x="935" y="490" class="small-text">✓ MariaDB 10.6.19 (Source DB)</text>
+  <text x="935" y="508" class="small-text">✓ Debezium Server (CDC)</text>
+  <text x="935" y="526" class="small-text">✓ NATS (Message Broker)</text>
+  <text x="935" y="544" class="small-text">✓ Spring Boot (Event Processor)</text>
+  <text x="935" y="562" class="small-text">✓ ClickHouse 24.10 (Analytics)</text>
+  <text x="935" y="580" class="small-text">All Open Source ✓</text>
+
+  <!-- Key Features Box -->
+  <rect x="920" y="610" width="250" height="130" style="fill: #e8f8f5; stroke: #16a085; stroke-width: 2;" rx="5"/>
+  <text x="1045" y="635" text-anchor="middle" class="title-text">Key Features</text>
+  
+  <text x="935" y="660" class="small-text">• Dual Input Sources (CDC + NATS)</text>
+  <text x="935" y="678" class="small-text">• Business Domain Events</text>
+  <text x="935" y="696" class="small-text">• Event Enrichment</text>
+  <text x="935" y="714" class="small-text">• Historical Analytics</text>
+  <text x="935" y="732" class="small-text">• Scalable &amp; Decoupled</text>
+
+</svg>
