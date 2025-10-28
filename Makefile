@@ -1,23 +1,36 @@
-.PHONY: help start stop restart clean test logs status init
+.PHONY: help start stop restart clean test logs status build
 
 # Default target
 help:
-	@echo "HR Event Publisher - CDC Pipeline"
+	@echo "HR CDC Service - Simple Change Data Capture"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make start      - Start all services with full initialization"
+	@echo "  make start      - Build and start all services"
 	@echo "  make stop       - Stop all services"
 	@echo "  make restart    - Restart all services"
 	@echo "  make clean      - Stop services and remove volumes"
 	@echo "  make test       - Run CDC pipeline tests"
 	@echo "  make logs       - Show logs from all services"
+	@echo "  make logs-cdc   - Show logs from CDC service only"
 	@echo "  make status     - Check status of all services"
-	@echo "  make init       - Initialize database and NATS stream only"
+	@echo "  make build      - Build the CDC service"
 	@echo ""
 
-# Start all services using quickstart script
+# Build and start all services
 start:
-	@./scripts/quickstart.sh
+	@echo "Building and starting all services..."
+	@docker-compose up -d --build
+	@echo ""
+	@echo "Services started! Waiting for health checks..."
+	@sleep 10
+	@echo ""
+	@docker-compose ps
+	@echo ""
+	@echo "CDC Service endpoint: http://localhost:8080"
+	@echo "Health check: curl http://localhost:8080/health"
+	@echo ""
+	@echo "View CDC logs: make logs-cdc"
+	@echo "Run tests: make test"
 
 # Stop all services
 stop:
@@ -33,28 +46,28 @@ clean:
 	@docker-compose down -v
 	@echo "Cleanup complete!"
 
+# Build the CDC service
+build:
+	@echo "Building CDC service..."
+	@docker-compose build hr-cdc-service
+
 # Run CDC tests
 test:
+	@echo "Running CDC pipeline tests..."
+	@echo "Watch the CDC service logs in another terminal: make logs-cdc"
+	@sleep 2
 	@./scripts/test-cdc.sh
 
 # Show logs from all services
 logs:
 	@docker-compose logs -f
 
+# Show logs from CDC service only
+logs-cdc:
+	@docker-compose logs -f hr-cdc-service
+
 # Check service status
 status:
 	@echo "Service Status:"
 	@echo ""
 	@docker-compose ps
-
-# Initialize database and NATS stream (when services are already running)
-init:
-	@echo "Initializing NATS stream..."
-	@docker run --rm \
-		--network bizeventhub-p2_hr-network \
-		-v "$$(pwd)/config/nats:/config" \
-		natsio/nats-box:latest \
-		nats stream add --config /config/stream.json --server nats://hr-nats:4222
-	@echo "Initializing database..."
-	@docker exec -i hr-mariadb mysql -uroot -prootpass hrdb < sql/init-db.sql
-	@echo "Initialization complete!"

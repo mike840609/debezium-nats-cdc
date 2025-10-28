@@ -1,16 +1,21 @@
-# HR Event Publisher - CDC Pipeline
+# HR CDC Service - Simple Change Data Capture
 
-A Change Data Capture (CDC) pipeline for HR systems using Debezium, NATS JetStream, and MariaDB.
+A simple Change Data Capture (CDC) service for HR systems using Spring Boot with embedded Debezium and MariaDB.
 
 ## 📋 Overview
 
-This project implements a CDC pipeline that captures database changes from MariaDB and publishes them as events to NATS JetStream. It's designed for HR event tracking and can be extended with business logic processors.
+This project implements a streamlined CDC pipeline that captures database changes from MariaDB and processes them in real-time using Spring Boot with embedded Debezium. No external message brokers needed!
 
 ## 🏗️ Architecture
 
+**Simple & Direct:**
+```
+MariaDB (Binlog) → Spring Boot (Embedded Debezium) → Your Business Logic
+```
+
+**Components:**
 - **MariaDB** - Source database with HR data (employees, departments, positions, etc.)
-- **Debezium** - CDC connector that reads MariaDB binlog
-- **NATS JetStream** - Event streaming platform for distributing CDC events
+- **Spring Boot + Debezium** - CDC service that captures and processes changes in real-time
 - **Docker Compose** - Infrastructure orchestration
 
 ## 📁 Project Structure
@@ -19,24 +24,28 @@ This project implements a CDC pipeline that captures database changes from Maria
 .
 ├── Makefile                    # Common operations (start, stop, test, clean)
 ├── docker-compose.yml          # Service definitions
-├── config/                     # All configurations
-│   ├── mariadb/
-│   │   └── my.cnf             # MariaDB configuration
-│   ├── debezium/
-│   │   └── application.properties  # Debezium connector config
-│   └── nats/
-│       └── stream.json        # NATS JetStream configuration
-├── scripts/                    # Executable scripts
-│   ├── quickstart.sh          # Quick start script
+├── hr-cdc-service/             # Spring Boot CDC application
+│   ├── pom.xml                # Maven dependencies
+│   ├── Dockerfile             # Container build
+│   └── src/main/
+│       ├── java/com/hr/cdc/
+│       │   ├── HrCdcApplication.java       # Main application
+│       │   ├── config/
+│       │   │   └── DebeziumConfig.java     # Debezium configuration
+│       │   ├── handler/
+│       │   │   └── CdcEventHandler.java    # CDC event processing
+│       │   └── controller/
+│       │       └── HealthController.java   # Health checks
+│       └── resources/
+│           └── application.properties      # Configuration
+├── config/
+│   └── mariadb/
+│       └── my.cnf             # MariaDB configuration
+├── scripts/
 │   └── test-cdc.sh            # CDC pipeline test script
-├── sql/                        # SQL scripts
+├── sql/
 │   └── init-db.sql            # Database schema and sample data
 └── docs/                       # Documentation
-    ├── architecture.svg        # Architecture diagram
-    ├── sequence-diagrams.svg   # Sequence diagrams
-    ├── design.md              # Design document
-    ├── system-design.md       # System design details
-    └── cdc-guide.md           # CDC implementation guide
 ```
 
 ## 🚀 Quick Start
@@ -44,218 +53,297 @@ This project implements a CDC pipeline that captures database changes from Maria
 ### Prerequisites
 
 - Docker & Docker Compose
-- 4GB RAM minimum
-- 10GB disk space
+- 2GB RAM minimum
+- 5GB disk space
 
-### Option 1: Using Makefile (Recommended)
+### Start the Services
 
 ```bash
-# Start all services with full initialization
-make start
-
-# Run CDC tests
-make test
+# Build and start all services
+docker-compose up -d --build
 
 # Check service status
-make status
+docker-compose ps
 
-# View logs
-make logs
-
-# Stop services
-make stop
-
-# Clean up everything (including volumes)
-make clean
+# View CDC service logs
+docker-compose logs -f hr-cdc-service
 ```
 
-### Option 2: Using Scripts Directly
+### Test the CDC Pipeline
 
 ```bash
-# Start services and initialize
-./scripts/quickstart.sh
-
-# Test the CDC pipeline
+# Run the test script
 ./scripts/test-cdc.sh
+
+# Watch the CDC service logs to see events being processed
+docker-compose logs -f hr-cdc-service
 ```
 
-### Option 3: Manual Setup
+### Stop Services
 
 ```bash
-# Start services
-docker-compose up -d
+# Stop all services
+docker-compose down
 
-# Wait for services to be healthy
-sleep 30
-
-# Initialize NATS stream and database
-make init
+# Stop and remove volumes (clean slate)
+docker-compose down -v
 ```
 
 ## 📊 Service Endpoints
 
-| Service  | Endpoint                    | Description            |
-|----------|-----------------------------|------------------------|
-| MariaDB  | `localhost:3306`            | Database server        |
-| NATS     | `localhost:4222`            | NATS client port       |
-| NATS UI  | `http://localhost:8222`     | NATS monitoring        |
+| Service       | Endpoint                    | Description            |
+|---------------|-----------------------------|------------------------|
+| MariaDB       | `localhost:3306`            | Database server        |
+| CDC Service   | `localhost:8080`            | Spring Boot application|
+| Health Check  | `http://localhost:8080/health` | Service health status |
 
-### Database Access
+## 🔧 Configuration
+
+### Database Configuration
+
+Database connection settings are in `hr-cdc-service/src/main/resources/application.properties`:
+
+```properties
+debezium.database.hostname=mariadb
+debezium.database.port=3306
+debezium.database.user=hruser
+debezium.database.password=hrpass
+debezium.database.dbname=hrdb
+```
+
+### Tables Being Monitored
+
+The service monitors these HR tables:
+- `employees` - Employee master data
+- `departments` - Organizational structure
+- `positions` - Job positions
+- `salary_changes` - Salary history
+- `leave_requests` - Leave/PTO management
+- `attendance_records` - Daily attendance
+
+### Snapshot Mode
+
+On first start, Debezium takes a snapshot of existing data:
+```properties
+debezium.snapshot.mode=initial
+```
+
+Change to `schema_only` to skip initial data snapshot.
+
+## 📝 How It Works
+
+### 1. Debezium Captures Changes
+
+The embedded Debezium engine reads MariaDB's binary log (binlog) and captures:
+- **INSERT** operations (op: 'c' for create)
+- **UPDATE** operations (op: 'u' for update)
+- **DELETE** operations (op: 'd' for delete)
+
+### 2. Events Are Processed
+
+Each change event is routed to specific handlers in `CdcEventHandler.java`:
+
+```java
+// Example: Employee change detection
+private void handleEmployeeChange(String operation, Map before, Map after) {
+    if (operation.equals("c")) {
+        log.info("New employee created: {}", after);
+        // TODO: Publish EmployeeHired event
+    }
+    else if (operation.equals("u")) {
+        // Detect promotion, transfer, status changes
+        detectEmployeeUpdates(before, after);
+    }
+}
+```
+
+### 3. Business Logic (TODO)
+
+The handlers include placeholders for your business logic:
+- Detect promotions (position changes)
+- Detect transfers (department changes)
+- Publish domain events
+- Trigger workflows
+- Update external systems
+
+## 🧪 Testing
+
+### Manual Testing
 
 ```bash
 # Connect to MariaDB
 docker exec -it hr-mariadb mysql -uhruser -phrpass hrdb
 
-# Credentials
-# - Database: hrdb
-# - User: hruser / hrpass
-# - Root: root / rootpass
+# Insert a test employee
+INSERT INTO employees (employee_id, first_name, last_name, email, department_id, position_id, hire_date, status)
+VALUES ('TEST001', 'John', 'Doe', 'john.doe@example.com', 1, 1, '2024-01-15', 'ACTIVE');
+
+# Update the employee
+UPDATE employees SET position_id = 2 WHERE employee_id = 'TEST001';
+
+# Delete the employee
+DELETE FROM employees WHERE employee_id = 'TEST001';
 ```
 
-### NATS Event Topics
+Watch the CDC service logs to see events being captured:
+```bash
+docker-compose logs -f hr-cdc-service
+```
 
-Events are published to NATS with the pattern: `HCM.CDC.HR.<database>.<table>`
-
-Examples:
-- `HCM.CDC.HR.hrdb.employees` - Employee changes
-- `HCM.CDC.HR.hrdb.departments` - Department changes
-- `HCM.CDC.HR.hrdb.salary_changes` - Salary change records
-
-## 🧪 Testing
-
-The test script performs CRUD operations and verifies CDC events:
+### Automated Testing
 
 ```bash
-# Run tests
-make test
-# or
 ./scripts/test-cdc.sh
 ```
 
-Test operations:
-1. Insert employee (EMP999 - Test User)
-2. Update salary (90000 → 95000)
-3. Record salary change
-4. Create leave request
-5. Delete test data
+This script performs CRUD operations and you can verify events in the logs.
 
-### Monitor Events
+## 🛠️ Development
 
-Using NATS CLI:
-```bash
-# Subscribe to all HR events
-nats sub 'HCM.CDC.HR.>' --server localhost:4222
+### Local Development (without Docker)
 
-# Subscribe to specific table
-nats sub 'HCM.CDC.HR.hrdb.employees' --server localhost:4222
+1. Start MariaDB:
+   ```bash
+   docker-compose up -d mariadb
+   ```
+
+2. Build the Spring Boot app:
+   ```bash
+   cd hr-cdc-service
+   mvn clean package
+   ```
+
+3. Run locally:
+   ```bash
+   java -jar target/hr-cdc-service-1.0.0.jar
+   ```
+
+### Adding Custom Business Logic
+
+Edit `hr-cdc-service/src/main/java/com/hr/cdc/handler/CdcEventHandler.java`:
+
+```java
+private void handleEmployeeChange(String operation, Map before, Map after) {
+    // Add your custom logic here
+    if (operation.equals("u")) {
+        // Detect specific changes
+        if (!equals(before.get("salary"), after.get("salary"))) {
+            // Handle salary change
+            publishSalaryChangeEvent(before, after);
+        }
+    }
+}
 ```
 
-Using Docker:
-```bash
-docker run --rm -it --network bizeventhub-p2_hr-network \
-  natsio/nats-box:latest \
-  nats sub 'HCM.CDC.HR.>' --server nats://hr-nats:4222
-```
-
-## 📖 Database Schema
-
-Tables included:
-- `employees` - Employee master data
-- `departments` - Department hierarchy
-- `positions` - Job positions and levels
-- `salary_changes` - Salary change history
-- `leave_requests` - Leave request tracking
-- `attendance_records` - Daily attendance
-
-See `sql/init-db.sql` for complete schema.
-
-## 🔧 Configuration
-
-### Debezium Configuration
-
-Edit `config/debezium/application.properties`:
-- Database connection settings
-- Topic prefix: `HCM.CDC.HR`
-- NATS JetStream URL
-
-### NATS Stream Configuration
-
-Edit `config/nats/stream.json`:
-- Stream name
-- Subject patterns
-- Retention policy
-- Storage type
-
-### MariaDB Configuration
-
-Edit `config/mariadb/my.cnf`:
-- Binlog settings (required for CDC)
-- Performance tuning
-
-## 🐛 Troubleshooting
-
-### Check Service Health
+### Rebuilding
 
 ```bash
-make status
-# or
-docker-compose ps
+# Rebuild the CDC service
+docker-compose up -d --build hr-cdc-service
+
+# View updated logs
+docker-compose logs -f hr-cdc-service
 ```
 
-### View Logs
+## 📈 Monitoring
+
+### Health Check
+
+```bash
+curl http://localhost:8080/health
+```
+
+Response:
+```json
+{
+  "status": "UP",
+  "service": "hr-cdc-service",
+  "timestamp": 1234567890
+}
+```
+
+### Service Logs
 
 ```bash
 # All services
-make logs
+docker-compose logs
 
-# Specific service
-docker logs hr-debezium
-docker logs hr-mariadb
-docker logs hr-nats
+# CDC service only
+docker-compose logs hr-cdc-service
+
+# Follow logs
+docker-compose logs -f hr-cdc-service
 ```
 
-### Verify Binlog is Enabled
+### Database Binlog Status
 
 ```bash
-docker exec hr-mariadb mysql -uroot -prootpass \
-  -e "SHOW VARIABLES LIKE 'log_bin';"
+docker exec -it hr-mariadb mysql -uroot -prootpass -e "SHOW BINARY LOGS;"
+docker exec -it hr-mariadb mysql -uroot -prootpass -e "SHOW MASTER STATUS;"
 ```
 
-### Check NATS JetStream
+## 🐛 Troubleshooting
 
+### CDC Service Not Starting
+
+Check if MariaDB is healthy:
 ```bash
-curl http://localhost:8222/jsz
+docker-compose ps
 ```
 
-### Reset Everything
-
+View CDC service logs:
 ```bash
-make clean
-make start
+docker-compose logs hr-cdc-service
 ```
+
+### No Events Being Captured
+
+Verify binlog is enabled:
+```bash
+docker exec -it hr-mariadb mysql -uroot -prootpass -e "SHOW VARIABLES LIKE 'log_bin';"
+```
+
+Should show `log_bin = ON`
+
+### Offset/Schema History Issues
+
+Remove and restart:
+```bash
+docker-compose down -v
+docker-compose up -d --build
+```
+
+## 🔒 Security Notes
+
+**This is a development setup!** For production:
+- Use environment variables for credentials
+- Enable TLS for database connections
+- Implement proper authentication
+- Use secrets management (Vault, AWS Secrets Manager, etc.)
+- Limit database user permissions
 
 ## 📚 Documentation
 
-- [Architecture Diagram](docs/architecture.svg)
-- [Sequence Diagrams](docs/sequence-diagrams.svg)
-- [Design Document](docs/design.md)
-- [System Design](docs/system-design.md)
-- [CDC Implementation Guide](docs/cdc-guide.md)
+- [Design Document](docs/design.md) - High-level design decisions
+- [System Design](docs/system-design.md) - Detailed architecture
+- [CDC Guide](docs/cdc-guide.md) - Debezium implementation details
+
+## 🎯 Next Steps
+
+1. **Implement Business Logic**: Add event publishing, notifications, or workflow triggers
+2. **Add Event Storage**: Integrate with ClickHouse, Kafka, or other sinks
+3. **Add Monitoring**: Prometheus metrics, Grafana dashboards
+4. **Add Tests**: Unit and integration tests
+5. **Productionize**: Environment configs, secrets management, HA setup
+
+## 📄 License
+
+MIT License - feel free to use and modify as needed.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+This is a simple reference implementation. Customize it for your needs!
 
-## 📝 License
+---
 
-This project is provided as-is for educational and development purposes.
-
-## 🔗 Related Resources
-
-- [Debezium Documentation](https://debezium.io/documentation/)
-- [NATS JetStream](https://docs.nats.io/nats-concepts/jetstream)
-- [MariaDB Binlog](https://mariadb.com/kb/en/binary-log/)
+**Simplified Architecture = Easier to Understand and Maintain**

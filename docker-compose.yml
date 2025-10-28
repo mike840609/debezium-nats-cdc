@@ -23,37 +23,26 @@ services:
       timeout: 5s
       retries: 5
 
-  nats:
-    image: nats:2.10-alpine
-    container_name: hr-nats
-    ports:
-      - "4222:4222"  # Client connections
-      - "8222:8222"  # HTTP monitoring
-    command: "-js -m 8222 --debug"  # Enable JetStream and monitoring
-    networks:
-      - hr-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  debezium:
-    image: debezium/server:3.0.0.Final
-    container_name: hr-debezium
+  hr-cdc-service:
+    build:
+      context: ./hr-cdc-service
+      dockerfile: Dockerfile
+    container_name: hr-cdc-service
     depends_on:
       mariadb:
         condition: service_healthy
-      nats:
-        condition: service_healthy
+    ports:
+      - "8080:8080"
     volumes:
-      - ./config/debezium:/debezium/conf
-      - debezium_data:/debezium/data
-    environment:
-      QUARKUS_CONFIG_LOCATIONS: /debezium/conf
+      - cdc_data:/tmp
     networks:
       - hr-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   hr-network:
@@ -61,4 +50,4 @@ networks:
 
 volumes:
   mariadb_data:
-  debezium_data:
+  cdc_data:
